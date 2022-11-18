@@ -66,6 +66,8 @@ SerializedValue:
       - "-0"
     # String representation of the Date.
     d: string?
+    # String representation of the URL.
+    u: string?
     # Regular expression pattern and flags.
     r:
       type: object?
@@ -85,6 +87,10 @@ SerializedValue:
           v: SerializedValue
     # An index in the handles array from SerializedArgument.
     h: number?
+    # Index of the object in value-type for circular reference resolution.
+    id: number?
+    # Ref to the object in value-type for circular reference resolution.
+    ref: number?
 
 
 # Represents a value with handle references.
@@ -104,6 +110,7 @@ ExpectedTextValue:
     regexSource: string?
     regexFlags: string?
     matchSubstring: boolean?
+    ignoreCase: boolean?
     normalizeWhiteSpace: boolean?
 
 
@@ -215,6 +222,27 @@ SerializedError:
         stack: string?
     value: SerializedValue?
 
+
+RecordHarOptions:
+  type: object
+  properties:
+    path: string
+    content:
+      type: enum?
+      literals:
+      - embed
+      - attach
+      - omit
+    mode:
+      type: enum?
+      literals:
+      - full
+      - minimal
+    urlGlob: string?
+    urlRegexSource: string?
+    urlRegexFlags: string?
+
+
 FormField:
   type: object
   properties:
@@ -229,6 +257,9 @@ FormField:
 
 APIRequestContext:
   type: interface
+
+  initializer:
+    tracing: Tracing
 
   commands:
 
@@ -253,6 +284,7 @@ APIRequestContext:
         timeout: number?
         failOnStatusCode: boolean?
         ignoreHTTPSErrors: boolean?
+        maxRedirects: number?
       returns:
         response: APIResponse
 
@@ -260,7 +292,7 @@ APIRequestContext:
       parameters:
         fetchUid: string
       returns:
-        binary?: binary
+        binary: binary?
 
     fetchLog:
       parameters:
@@ -306,6 +338,32 @@ LifecycleEvent:
   - networkidle
   - commit
 
+CommonScreenshotOptions:
+  type: mixin
+  properties:
+    omitBackground: boolean?
+    caret:
+      type: enum?
+      literals:
+      - hide
+      - initial
+    animations:
+      type: enum?
+      literals:
+      - disabled
+      - allow
+    scale:
+      type: enum?
+      literals:
+      - css
+      - device
+    mask:
+      type: array?
+      items:
+        type: object
+        properties:
+          frame: Frame
+          selector: string
 
 LaunchOptions:
   type: mixin
@@ -387,16 +445,19 @@ ContextOptions:
       - dark
       - light
       - no-preference
+      - no-override
     reducedMotion:
       type: enum?
       literals:
       - reduce
       - no-preference
+      - no-override
     forcedColors:
       type: enum?
       literals:
       - active
       - none
+      - no-override
     acceptDownloads: boolean?
     baseURL: string?
     recordVideo:
@@ -408,12 +469,13 @@ ContextOptions:
           properties:
             width: number
             height: number
-    recordHar:
-      type: object?
-      properties:
-        omitContent: boolean?
-        path: string
+    recordHar: RecordHarOptions?
     strictSelectors: boolean?
+    serviceWorkers:
+      type: enum?
+      literals:
+      - allow
+      - block
 
 LocalUtils:
   type: interface
@@ -427,6 +489,58 @@ LocalUtils:
           type: array
           items: NameValue
 
+    harOpen:
+      parameters:
+        file: string
+      returns:
+        harId: string?
+        error: string?
+
+    harLookup:
+      parameters:
+        harId: string
+        url: string
+        method: string
+        headers:
+          type: array
+          items: NameValue
+        postData: binary?
+        isNavigationRequest: boolean
+      returns:
+        action:
+          type: enum
+          literals:
+          - error
+          - redirect
+          - fulfill
+          - noentry
+        message: string?
+        redirectURL: string?
+        status: number?
+        headers:
+          type: array?
+          items: NameValue
+        body: binary?
+
+    harClose:
+      parameters:
+        harId: string
+
+    harUnzip:
+      parameters:
+        zipFile: string
+        harFile: string
+
+    connect:
+      parameters:
+        wsEndpoint: string
+        headers: json?
+        slowMo: number?
+        timeout: number?
+        socksProxyRedirectPortForTest: number?
+      returns:
+        pipe: JsonPipe
+
 Root:
   type: interface
 
@@ -434,7 +548,13 @@ Root:
 
     initialize:
       parameters:
-        sdkLanguage: string
+        sdkLanguage:
+          type: enum
+          literals:
+          - javascript
+          - python
+          - java
+          - csharp
       returns:
         playwright: Playwright
 
@@ -480,34 +600,12 @@ Playwright:
     selectors: Selectors
     # Only present when connecting remotely via BrowserType.connect() method.
     preLaunchedBrowser: Browser?
+    # Only present when connecting remotely via Android.connect() method.
+    preConnectedAndroidDevice: AndroidDevice?
+    # Only present when socks proxy is supported.
+    socksSupport: SocksSupport?
 
   commands:
-
-    socksConnected:
-      parameters:
-        uid: string
-        host: string
-        port: number
-
-    socksFailed:
-      parameters:
-        uid: string
-        errorCode: string
-
-    socksData:
-      parameters:
-        uid: string
-        data: binary
-
-    socksError:
-      parameters:
-        uid: string
-        error: string
-
-    socksEnd:
-      parameters:
-        uid: string
-
     newRequest:
       parameters:
         baseURL: string?
@@ -538,11 +636,144 @@ Playwright:
             origins:
               type: array
               items: OriginStorage
+        tracesDir: string?
 
       returns:
         request: APIRequestContext
 
+RecorderSource:
+  type: object
+  properties:
+    isRecorded: boolean
+    id: string
+    label: string
+    text: string
+    language: string
+    highlight:
+      type: array
+      items:
+        type: object
+        properties:
+          line: number
+          type: string
+    revealLine: number?
+    group: string?
+
+DebugController:
+  type: interface
+
+  commands:
+    initialize:
+      parameters:
+        codegenId: string
+        sdkLanguage:
+          type: enum
+          literals:
+          - javascript
+          - python
+          - java
+          - csharp
+
+    setReportStateChanged:
+      parameters:
+        enabled: boolean
+
+    resetForReuse:
+
+    navigate:
+      parameters:
+        url: string
+
+    setRecorderMode:
+      parameters:
+        mode:
+          type: enum
+          literals:
+            - inspecting
+            - recording
+            - none
+        testIdAttributeName: string?
+
+    highlight:
+      parameters:
+        selector: string
+
     hideHighlight:
+
+    resume:
+
+    kill:
+
+    closeAllBrowsers:
+
+  events:
+    inspectRequested:
+      parameters:
+        selector: string
+        locator: string
+
+    stateChanged:
+      parameters:
+        pageCount: number
+
+    sourceChanged:
+      parameters:
+        text: string
+        header: string?
+        footer: string?
+        actions:
+          type: array?
+          items: string
+
+    paused:
+      parameters:
+        paused: boolean
+
+    # Deprecated
+    browsersChanged:
+      parameters:
+        browsers:
+          type: array
+          items:
+            type: object
+            properties:
+              contexts:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    pages:
+                      type: array
+                      items: string
+
+SocksSupport:
+  type: interface
+
+  commands:
+    socksConnected:
+      parameters:
+        uid: string
+        host: string
+        port: number
+
+    socksFailed:
+      parameters:
+        uid: string
+        errorCode: string
+
+    socksData:
+      parameters:
+        uid: string
+        data: binary
+
+    socksError:
+      parameters:
+        uid: string
+        error: string
+
+    socksEnd:
+      parameters:
+        uid: string
 
   events:
     socksRequested:
@@ -560,7 +791,6 @@ Playwright:
       parameters:
         uid: string
 
-
 Selectors:
   type: interface
 
@@ -572,6 +802,9 @@ Selectors:
         source: string
         contentScript: boolean?
 
+    setTestIdAttributeName:
+      parameters:
+        testIdAttributeName: string
 
 BrowserType:
   type: interface
@@ -581,15 +814,6 @@ BrowserType:
     name: string
 
   commands:
-
-    connect:
-      parameters:
-        wsEndpoint: string
-        headers: json?
-        slowMo: number?
-        timeout: number?
-      returns:
-        pipe: JsonPipe
 
     launch:
       parameters:
@@ -655,6 +879,28 @@ Browser:
       returns:
         context: BrowserContext
 
+    newContextForReuse:
+      parameters:
+        $mixin: ContextOptions
+        proxy:
+          type: object?
+          properties:
+            server: string
+            bypass: string?
+            username: string?
+            password: string?
+        storageState:
+          type: object?
+          properties:
+            cookies:
+              type: array?
+              items: SetNetworkCookie
+            origins:
+              type: array?
+              items: OriginStorage
+      returns:
+        context: BrowserContext
+
     newBrowserCDPSession:
       returns:
         session: CDPSession
@@ -671,6 +917,7 @@ Browser:
     stopTracing:
       returns:
         binary: binary
+
 
   events:
 
@@ -706,7 +953,8 @@ BrowserContext:
 
   initializer:
     isChromium: boolean
-    APIRequestContext: APIRequestContext
+    requestContext: APIRequestContext
+    tracing: Tracing
 
   commands:
 
@@ -807,13 +1055,19 @@ BrowserContext:
       experimental: True
       parameters:
         language: string?
-        startRecording: boolean?
+        mode:
+          type: enum?
+          literals:
+          - inspecting
+          - recording
         pauseOnNextStatement: boolean?
         launchOptions: json?
         contextOptions: json?
         device: string?
         saveStorage: string?
         outputFile: string?
+        handleSIGINT: boolean?
+        omitCallTracking: boolean?
 
     newCDPSession:
       parameters:
@@ -822,37 +1076,35 @@ BrowserContext:
       returns:
         session: CDPSession
 
-    tracingStart:
+    harStart:
       parameters:
-        name: string?
-        snapshots: boolean?
-        screenshots: boolean?
-        sources: boolean?
-
-    tracingStartChunk:
-      parameters:
-        title: string?
-
-    tracingStopChunk:
-      parameters:
-        mode:
-          type: enum
-          literals:
-          - doNotSave
-          - compressTrace
-          - compressTraceAndSources
+        page: Page?
+        options: RecordHarOptions
       returns:
-        # The artifact may be missing if the browser closes while tracing is beeing stopped.
-        artifact: Artifact?
-        sourceEntries:
-          type: array?
-          items: NameValue
-
-    tracingStop:
+        harId: string
 
     harExport:
+      parameters:
+        harId: string?
       returns:
         artifact: Artifact
+
+    createTempFile:
+      parameters:
+        name: string
+      returns:
+        writableStream: WritableStream
+
+    updateSubscription:
+      parameters:
+        event:
+          type: enum
+          literals:
+          - request
+          - response
+          - requestFinished
+          - requestFailed
+        enabled: boolean
 
   events:
 
@@ -869,7 +1121,6 @@ BrowserContext:
     route:
       parameters:
         route: Route
-        request: Request
 
     video:
       parameters:
@@ -932,10 +1183,6 @@ Page:
       parameters:
         timeout: number?
 
-    setFileChooserInterceptedNoReply:
-      parameters:
-        intercepted: boolean
-
     addInitScript:
       parameters:
         source: string
@@ -951,30 +1198,26 @@ Page:
           literals:
           - screen
           - print
-          # Reset emulated value to the system default.
-          - null
+          - no-override
         colorScheme:
           type: enum?
           literals:
           - dark
           - light
           - no-preference
-          # Reset emulated value to the system default.
-          - null
+          - no-override
         reducedMotion:
           type: enum?
           literals:
           - reduce
           - no-preference
-          # Reset emulated value to the system default.
-          - null
+          - no-override
         forcedColors:
           type: enum?
           literals:
           - active
           - none
-          # Reset emulated value to the system default.
-          - null
+          - no-override
 
     exposeBinding:
       parameters:
@@ -1008,6 +1251,39 @@ Page:
       tracing:
         snapshot: true
 
+    expectScreenshot:
+      parameters:
+        expected: binary?
+        timeout: number?
+        isNot: boolean
+        locator:
+          type: object?
+          properties:
+            frame: Frame
+            selector: string
+        comparatorOptions:
+          type: object?
+          properties:
+            maxDiffPixels: number?
+            maxDiffPixelRatio: number?
+            threshold: number?
+        screenshotOptions:
+          type: object?
+          properties:
+            fullPage: boolean?
+            clip: Rect?
+            $mixin: CommonScreenshotOptions
+      returns:
+        diff: binary?
+        errorMessage: string?
+        actual: binary?
+        previous: binary?
+        log:
+          type: array?
+          items: string
+      tracing:
+        snapshot: true
+
     screenshot:
       parameters:
         timeout: number?
@@ -1017,11 +1293,13 @@ Page:
           - png
           - jpeg
         quality: number?
-        omitBackground: boolean?
         fullPage: boolean?
         clip: Rect?
+        $mixin: CommonScreenshotOptions
       returns:
         binary: binary
+      tracing:
+        snapshot: true
 
     setExtraHTTPHeaders:
       parameters:
@@ -1220,6 +1498,18 @@ Page:
 
     bringToFront:
 
+    updateSubscription:
+      parameters:
+        event:
+          type: enum
+          literals:
+          - fileChooser
+          - request
+          - response
+          - requestFinished
+          - requestFailed
+        enabled: boolean
+
   events:
 
     bindingCall:
@@ -1244,8 +1534,6 @@ Page:
         suggestedFilename: string
         artifact: Artifact
 
-    domcontentloaded:
-
     fileChooser:
       parameters:
         element: ElementHandle
@@ -1259,8 +1547,6 @@ Page:
       parameters:
         frame: Frame
 
-    load:
-
     pageError:
       parameters:
         error: SerializedError
@@ -1268,7 +1554,6 @@ Page:
     route:
       parameters:
         route: Route
-        request: Request
 
     video:
       parameters:
@@ -1336,6 +1621,14 @@ Frame:
         content: string?
       returns:
         element: ElementHandle
+      tracing:
+        snapshot: true
+
+    blur:
+      parameters:
+        selector: string
+        strict: boolean?
+        timeout: number?
       tracing:
         snapshot: true
 
@@ -1527,6 +1820,7 @@ Frame:
         position: Point?
         timeout: number?
         trial: boolean?
+        noWaitAfter: boolean?
       tracing:
         snapshot: true
         pausesBeforeInput: true
@@ -1698,6 +1992,24 @@ Frame:
               name: string
               mimeType: string?
               buffer: binary
+        timeout: number?
+        noWaitAfter: boolean?
+      tracing:
+        snapshot: true
+        pausesBeforeInput: true
+
+    # This method should be used if one of the files is large (>50Mb).
+    setInputFilePaths:
+      parameters:
+        selector: string
+        strict: boolean?
+        # Only one of localPaths and streams should be present.
+        localPaths:
+          type: array?
+          items: string
+        streams:
+          type: array?
+          items: WritableStream
         timeout: number?
         noWaitAfter: boolean?
       tracing:
@@ -2074,6 +2386,7 @@ ElementHandle:
         position: Point?
         timeout: number?
         trial: boolean?
+        noWaitAfter: boolean?
       tracing:
         snapshot: true
         pausesBeforeInput: true
@@ -2170,9 +2483,11 @@ ElementHandle:
           - png
           - jpeg
         quality: number?
-        omitBackground: boolean?
+        $mixin: CommonScreenshotOptions
       returns:
         binary: binary
+      tracing:
+        snapshot: true
 
     scrollIntoViewIfNeeded:
       parameters:
@@ -2221,6 +2536,22 @@ ElementHandle:
               name: string
               mimeType: string?
               buffer: binary
+        timeout: number?
+        noWaitAfter: boolean?
+      tracing:
+        snapshot: true
+        pausesBeforeInput: true
+
+    # This method should be used if one of the files is large (>50Mb).
+    setInputFilePaths:
+      parameters:
+        # Only one of localPaths and streams should be present.
+        localPaths:
+          type: array?
+          items: string
+        streams:
+          type: array?
+          items: WritableStream
         timeout: number?
         noWaitAfter: boolean?
       tracing:
@@ -2311,7 +2642,8 @@ Request:
   type: interface
 
   initializer:
-    frame: Frame
+    frame: Frame?
+    serviceWorker: Worker?
     url: string
     resourceType: string
     method: string
@@ -2343,6 +2675,10 @@ Route:
 
   commands:
 
+    redirectNavigationRequest:
+      parameters:
+        url: string
+
     abort:
       parameters:
         errorCode: string?
@@ -2366,7 +2702,6 @@ Route:
         body: string?
         isBase64: boolean?
         fetchResponseUid: string?
-
 
 ResourceTiming:
   type: object
@@ -2392,6 +2727,7 @@ Response:
       type: array
       items: NameValue
     timing: ResourceTiming
+    fromServiceWorker: boolean
 
 
   commands:
@@ -2530,6 +2866,39 @@ Dialog:
     dismiss:
 
 
+Tracing:
+  type: interface
+
+  commands:
+
+    tracingStart:
+      parameters:
+        name: string?
+        snapshots: boolean?
+        screenshots: boolean?
+        sources: boolean?
+
+    tracingStartChunk:
+      parameters:
+        title: string?
+
+    tracingStopChunk:
+      parameters:
+        mode:
+          type: enum
+          literals:
+          - doNotSave
+          - compressTrace
+          - compressTraceAndSources
+      returns:
+        # The artifact may be missing if the browser closes while tracing is beeing stopped.
+        artifact: Artifact?
+        sourceEntries:
+          type: array?
+          items: NameValue
+
+    tracingStop:
+
 
 Artifact:
   type: interface
@@ -2575,6 +2944,18 @@ Stream:
       parameters:
         size: number?
       returns:
+        binary: binary
+
+    close:
+
+
+WritableStream:
+  type: interface
+
+  commands:
+
+    write:
+      parameters:
         binary: binary
 
     close:
@@ -2626,6 +3007,7 @@ Electron:
           - dark
           - light
           - no-preference
+          - no-override
         extraHTTPHeaders:
           type: array?
           items: NameValue
@@ -2643,11 +3025,7 @@ Electron:
         ignoreHTTPSErrors: boolean?
         locale: string?
         offline: boolean?
-        recordHar:
-          type: object?
-          properties:
-            omitContent: boolean?
-            path: string
+        recordHar: RecordHarOptions?
         recordVideo:
           type: object?
           properties:
@@ -2708,6 +3086,10 @@ Android:
   commands:
 
     devices:
+      parameters:
+        host: string?
+        port: number?
+        omitDriverInstall: boolean?
       returns:
         devices:
           type: array
@@ -2868,66 +3250,8 @@ AndroidDevice:
 
     launchBrowser:
       parameters:
+        $mixin: ContextOptions
         pkg: string?
-        ignoreHTTPSErrors: boolean?
-        javaScriptEnabled: boolean?
-        bypassCSP: boolean?
-        userAgent: string?
-        locale: string?
-        timezoneId: string?
-        geolocation:
-          type: object?
-          properties:
-            longitude: number
-            latitude: number
-            accuracy: number?
-        permissions:
-          type: array?
-          items: string
-        extraHTTPHeaders:
-          type: array?
-          items: NameValue
-        offline: boolean?
-        httpCredentials:
-          type: object?
-          properties:
-            username: string
-            password: string
-        deviceScaleFactor: number?
-        isMobile: boolean?
-        hasTouch: boolean?
-        colorScheme:
-          type: enum?
-          literals:
-          - dark
-          - light
-          - no-preference
-        reducedMotion:
-          type: enum?
-          literals:
-          - reduce
-          - no-preference
-        forcedColors:
-          type: enum?
-          literals:
-          - active
-          - none
-        acceptDownloads: boolean?
-        recordVideo:
-          type: object?
-          properties:
-            dir: string
-            size:
-              type: object?
-              properties:
-                width: number
-                height: number
-        recordHar:
-          type: object?
-          properties:
-            omitContent: boolean?
-            path: string
-        strictSelectors: boolean?
         proxy:
           type: object?
           properties:
@@ -2970,20 +3294,22 @@ AndroidDevice:
 
     connectToWebView:
       parameters:
-        pid: number
+        socketName: string
       returns:
         context: BrowserContext
 
     close:
 
   events:
+    close:
+
     webViewAdded:
       parameters:
         webView: AndroidWebView
 
     webViewRemoved:
       parameters:
-        pid: number
+        socketName: string
 
 
 AndroidWebView:
@@ -2991,6 +3317,7 @@ AndroidWebView:
   properties:
     pid: number
     pkg: string
+    socketName: string
 
 
 AndroidSelector:

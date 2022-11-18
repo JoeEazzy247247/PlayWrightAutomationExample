@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "C:\\Users\\joeea\\OneDrive\\Desktop\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj": {}
+    "C:\\Users\\joeea\\OneDrive\\Desktop\\PlayWright Folder\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj": {}
   },
   "projects": {
-    "C:\\Users\\joeea\\OneDrive\\Desktop\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj": {
+    "C:\\Users\\joeea\\OneDrive\\Desktop\\PlayWright Folder\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "C:\\Users\\joeea\\OneDrive\\Desktop\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj",
+        "projectUniqueName": "C:\\Users\\joeea\\OneDrive\\Desktop\\PlayWright Folder\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj",
         "projectName": "SpecflowPlaywriteAutomation",
-        "projectPath": "C:\\Users\\joeea\\OneDrive\\Desktop\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj",
+        "projectPath": "C:\\Users\\joeea\\OneDrive\\Desktop\\PlayWright Folder\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation.csproj",
         "packagesPath": "C:\\Users\\joeea\\.nuget\\packages\\",
-        "outputPath": "C:\\Users\\joeea\\OneDrive\\Desktop\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\obj\\",
+        "outputPath": "C:\\Users\\joeea\\OneDrive\\Desktop\\PlayWright Folder\\SpecflowPlaywriteAutomation\\SpecflowPlaywriteAutomation\\obj\\",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "C:\\Users\\joeea\\AppData\\Roaming\\NuGet\\NuGet.Config",
@@ -42,23 +42,23 @@
           "dependencies": {
             "FluentAssertions": {
               "target": "Package",
-              "version": "[6.2.0, )"
+              "version": "[6.8.0, )"
             },
             "Microsoft.NET.Test.Sdk": {
               "target": "Package",
-              "version": "[17.0.0, )"
+              "version": "[17.4.0, )"
             },
-            "Microsoft.playwright": {
+            "Microsoft.Playwright.NUnit": {
               "target": "Package",
-              "version": "[1.18.0, )"
+              "version": "[1.28.0, )"
             },
             "NUnit3TestAdapter": {
               "target": "Package",
-              "version": "[4.1.0, )"
+              "version": "[4.3.0, )"
             },
             "SpecFlow.NUnit": {
               "target": "Package",
-              "version": "[3.9.40, )"
+              "version": "[3.9.74, )"
             },
             "SpecFlow.Plus.LivingDocPlugin": {
               "target": "Package",
@@ -66,7 +66,7 @@
             },
             "nunit": {
               "target": "Package",
-              "version": "[3.13.2, )"
+              "version": "[3.13.3, )"
             }
           },
           "imports": [
@@ -75,7 +75,8 @@
             "net47",
             "net471",
             "net472",
-            "net48"
+            "net48",
+            "net481"
           ],
           "assetTargetFallback": true,
           "warn": true,
@@ -84,7 +85,7 @@
               "privateAssets": "all"
             }
           },
-          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\6.0.101\\RuntimeIdentifierGraph.json"
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\6.0.402\\RuntimeIdentifierGraph.json"
         }
       }
     }

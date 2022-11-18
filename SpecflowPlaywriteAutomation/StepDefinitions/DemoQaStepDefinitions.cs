@@ -33,8 +33,8 @@ namespace SpecflowPlaywriteAutomation.StepDefinitions
         [Then(@"I am on elements page")]
         public async void ThenTheCounterValueIs()
         {
-            await homePage.isElementExist();
-            homePage.isElementExist().Should().Be("Elements");
+            var isExist = await homePage.isElementExist();
+            isExist.Should().Be("Elements");
         }
     }
 }

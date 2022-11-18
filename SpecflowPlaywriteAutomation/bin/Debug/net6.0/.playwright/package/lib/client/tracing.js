@@ -4,9 +4,8 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports.Tracing = void 0;
-
 var _artifact = require("./artifact");
-
+var _channelOwner = require("./channelOwner");
 /**
  * Copyright (c) Microsoft Corporation.
  *
@@ -22,66 +21,62 @@ var _artifact = require("./artifact");
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-class Tracing {
-  constructor(channel) {
-    this._context = void 0;
-    this._context = channel;
-  }
 
+class Tracing extends _channelOwner.ChannelOwner {
+  static from(channel) {
+    return channel._object;
+  }
+  constructor(parent, type, guid, initializer) {
+    super(parent, type, guid, initializer);
+  }
   async start(options = {}) {
-    await this._context._wrapApiCall(async () => {
-      await this._context._channel.tracingStart(options);
-      await this._context._channel.tracingStartChunk({
+    await this._wrapApiCall(async () => {
+      await this._channel.tracingStart(options);
+      await this._channel.tracingStartChunk({
         title: options.title
       });
     });
   }
-
   async startChunk(options = {}) {
-    await this._context._channel.tracingStartChunk(options);
+    await this._channel.tracingStartChunk(options);
   }
-
   async stopChunk(options = {}) {
-    await this._doStopChunk(this._context._channel, options.path);
+    await this._doStopChunk(options.path);
   }
-
   async stop(options = {}) {
-    await this._context._wrapApiCall(async () => {
-      await this._doStopChunk(this._context._channel, options.path);
-      await this._context._channel.tracingStop();
+    await this._wrapApiCall(async () => {
+      await this._doStopChunk(options.path);
+      await this._channel.tracingStop();
     });
   }
-
-  async _doStopChunk(channel, filePath) {
+  async _doStopChunk(filePath) {
     var _result$sourceEntries;
-
-    const isLocal = !this._context._connection.isRemote();
+    const isLocal = !this._connection.isRemote();
     let mode = 'doNotSave';
-
     if (filePath) {
       if (isLocal) mode = 'compressTraceAndSources';else mode = 'compressTrace';
     }
-
-    const result = await channel.tracingStopChunk({
+    const result = await this._channel.tracingStopChunk({
       mode
     });
-
     if (!filePath) {
       // Not interested in artifacts.
       return;
-    } // The artifact may be missing if the browser closed while stopping tracing.
+    }
 
+    // The artifact may be missing if the browser closed while stopping tracing.
+    if (!result.artifact) return;
 
-    if (!result.artifact) return; // Save trace to the final local file.
-
+    // Save trace to the final local file.
     const artifact = _artifact.Artifact.from(result.artifact);
-
     await artifact.saveAs(filePath);
-    await artifact.delete(); // Add local sources to the remote trace if necessary.
+    await artifact.delete();
 
-    if ((_result$sourceEntries = result.sourceEntries) !== null && _result$sourceEntries !== void 0 && _result$sourceEntries.length) await this._context._localUtils.zip(filePath, result.sourceEntries);
+    // Add local sources to the remote trace if necessary.
+    if ((_result$sourceEntries = result.sourceEntries) !== null && _result$sourceEntries !== void 0 && _result$sourceEntries.length) await this._connection.localUtils()._channel.zip({
+      zipFile: filePath,
+      entries: result.sourceEntries
+    });
   }
-
 }
-
 exports.Tracing = Tracing;
