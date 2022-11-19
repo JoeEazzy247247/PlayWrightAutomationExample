@@ -21,6 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Folder Include="Reports\" />
     <Folder Include="ScreenShots\" />
     <Folder Include="Support\" />
   </ItemGroup>
