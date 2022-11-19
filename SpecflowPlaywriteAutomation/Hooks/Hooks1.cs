@@ -1,15 +1,16 @@
 ﻿using BoDi;
 using Microsoft.Playwright;
+using NUnit.Framework;
+using SpecflowPlaywriteAutomation.Drivers;
+
+[assembly: Parallelizable(ParallelScope.Fixtures)]
 
 namespace SpecflowPlaywriteAutomation.Hooks
 {
     [Binding]
-    public class Hooks1 
+    public class Hooks1 :Driver
     {
         private IObjectContainer _objectContainer;
-        private IPlaywright? _playwright;
-        public IBrowser? _browser { get; set; }
-        public IPage? _page { get; set; }
 
         public Hooks1(IObjectContainer objectContainer)
         {
@@ -19,14 +20,7 @@ namespace SpecflowPlaywriteAutomation.Hooks
         [BeforeScenario]
         public async Task FirstBeforeScenario()
         {
-            _playwright = await Playwright.CreateAsync();
-            _browser = await _playwright.Chromium.LaunchAsync( 
-                new BrowserTypeLaunchOptions
-            { Headless = false, SlowMo = 50 });
-
-            _page = await _browser.NewPageAsync(new()
-            { ViewportSize = new ViewportSize
-                { Height = 1200, Width = 1920 },});
+            await Initialize(); 
             _objectContainer.RegisterInstanceAs(_page);
         }
 
